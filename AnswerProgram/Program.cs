@@ -11,10 +11,10 @@ namespace AnswerProgram
 	{
 		private const string URL = "http://api.coxauto-interview.com/";
 
-		public static async Task Main(string[] args)
+        public static void Main(string[] args)
 		{
 			Answer answer = new Answer();
-			HashSet<DealerAnswer> dealerAnswers = new HashSet<DealerAnswer>();			
+			List<DealerAnswer> dealerAnswers = new List<DealerAnswer>();			
 			Dictionary<int?, List<VehicleAnswer>> dict = new Dictionary<int?, List<VehicleAnswer>>();
 
 			Configuration config = new Configuration(new Dictionary<string, string>(), new Dictionary<string, string>(), 
@@ -25,50 +25,71 @@ namespace AnswerProgram
 			VehiclesApi vehiclesApi = new VehiclesApi(config);
 
             var datasetId = dataSetApi.GetDataSetId().DatasetId;
-            var vehiclesTask = vehiclesApi.GetIdsAsync(datasetId);
+            var vehiclesIds = vehiclesApi.GetIds(datasetId);
 
-            foreach(var v in vehiclesTask.Result.VehicleIds)
+            List<Task<VehicleResponse>> vehicletasks = new List<Task<VehicleResponse>>();
+            foreach(var v in vehiclesIds.VehicleIds)
             {
-                var vehicleInfoTask = vehiclesApi.GetVehicleAsync(datasetId, v);
-                var dealersTask = dealerApi.GetDealerAsync(datasetId, vehicleInfoTask.Result.DealerId);
+                vehicletasks.Add(vehiclesApi.GetVehicleAsync(datasetId, v));
+            }
 
-                VehicleAnswer vehicleAnswer = new VehicleAnswer();
-                vehicleAnswer.Year = vehicleInfoTask.Result.Year;
-                vehicleAnswer.Make = vehicleInfoTask.Result.Make;
-                vehicleAnswer.Model = vehicleInfoTask.Result.Model;
-                vehicleAnswer.VehicleId = vehicleInfoTask.Result.VehicleId;
+            Task.WaitAll(vehicletasks.ToArray());
+
+            foreach (var v in vehicletasks)
+            {
+
+                VehicleAnswer vehicleAnswer = new VehicleAnswer
+                {
+                    Year = v.Result.Year,
+                    Make = v.Result.Make,
+                    Model = v.Result.Model,
+                    VehicleId = v.Result.VehicleId
+                };
 
                 //dealer is in dictionary
-                if (dict.ContainsKey(dealersTask.Result.DealerId))
+                if (dict.ContainsKey(v.Result.DealerId))
                 {
                     //get vehicle answers
-                    List<VehicleAnswer> vAs = dict[dealersTask.Result.DealerId];
+                    List<VehicleAnswer> vAs = dict[v.Result.DealerId];
                     //add new answer
                     vAs.Add(vehicleAnswer);
                     //add new answer list
-                    dict[dealersTask.Result.DealerId] = vAs;
+                    dict[v.Result.DealerId] = vAs;
                 }
                 //dealer is not in dictionary
                 else
                 {
                     List<VehicleAnswer> vAs = new List<VehicleAnswer>();
                     vAs.Add(vehicleAnswer);
-                    dict.Add(dealersTask.Result.DealerId, vAs);
+                    dict.Add(v.Result.DealerId, vAs);
                 }
-
-                DealerAnswer dealerAnswer = new DealerAnswer();
-                dealerAnswer.DealerId = dealersTask.Result.DealerId;
-                dealerAnswer.Name = dealersTask.Result.Name;
-                dealerAnswer.Vehicles = dict[dealersTask.Result.DealerId];
-                dealerAnswers.Add(dealerAnswer);
-
-                List<DealerAnswer> das = new List<DealerAnswer>(dealerAnswers);
-                answer.Dealers = das;
             }
+
+            List<Task<DealersResponse>> dealertasks = new List<Task<DealersResponse>>();
+            foreach(var v in dict)
+            {
+                dealertasks.Add(dealerApi.GetDealerAsync(datasetId, v.Key));
+            }
+
+            Task.WaitAll(dealertasks.ToArray());
+
+            foreach(var d in dealertasks)
+            {
+                DealerAnswer dealerAnswer = new DealerAnswer
+                {
+                    DealerId = d.Result.DealerId,
+                    Name = d.Result.Name,
+                    Vehicles = dict[d.Result.DealerId]
+                };
+
+                dealerAnswers.Add(dealerAnswer);
+            }
+
+            answer.Dealers = dealerAnswers;
 
             AnswerResponse finalAnswer = dataSetApi.PostAnswer(datasetId, answer);
             Console.WriteLine(finalAnswer.ToJson());
             Console.ReadLine();
         }
-	}
+    }
 }
