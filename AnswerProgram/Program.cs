@@ -1,8 +1,8 @@
 ﻿using IO.Swagger.Api;
 using IO.Swagger.Client;
 using IO.Swagger.Model;
-using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace AnswerProgram
 {
@@ -24,10 +24,14 @@ namespace AnswerProgram
 			DealersApi dealerApi = new DealersApi(config);
 			VehiclesApi vehiclesApi = new VehiclesApi(config);
 
-			DatasetIdResponse dataset = dataSetApi.GetDataSetId();
-			var datasetId = dataset.DatasetId;
-			VehicleIdsResponse vehicleIds = vehiclesApi.GetIds(dataset.DatasetId);
+            var datasetId = dataSetApi.GetDataSetId().DatasetId;
+            var vehiclesTask = vehiclesApi.GetIdsAsync(datasetId);
+            var dealersTask = dealerApi.GetDealerAsync(datasetId, vehiclesTask.Result.VehicleIds.Count);
 
+            var vehicleIds = await vehiclesTask;
+            var dealerIds = await dealersTask;
+
+            /*
 			foreach (int v in vehicleIds.VehicleIds)
 			{
 				VehicleResponse vehicleInfo = vehiclesApi.GetVehicle(datasetId, v);
@@ -75,6 +79,7 @@ namespace AnswerProgram
 			AnswerResponse finalAnswer = dataSetApi.PostAnswer(datasetId, answer);
 
 			Console.WriteLine(finalAnswer.ToJson());
+            Console.ReadLine();*/
 		}
 	}
 }
