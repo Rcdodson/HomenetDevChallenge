@@ -16,7 +16,6 @@ namespace AnswerProgram
 			Answer answer = new Answer();
 			HashSet<DealerAnswer> dealerAnswers = new HashSet<DealerAnswer>();			
 			Dictionary<int?, List<VehicleAnswer>> dict = new Dictionary<int?, List<VehicleAnswer>>();
-			HashSet<DealersResponse> DealerList = new HashSet<DealersResponse>();
 
 			Configuration config = new Configuration(new Dictionary<string, string>(), new Dictionary<string, string>(), 
 				new Dictionary<string, string>(), basePath: URL);
